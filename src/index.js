@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 // Define storage for uploaded files
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, './server_app/uploads/'); // Destination folder for uploaded files
+        cb(null, './node_server/uploads/'); // Destination folder for uploaded files
     },
     filename: (req, file, cb) => {
         cb(null, Date.now() + '-' + file.originalname); // Rename the file to include the timestamp
@@ -27,9 +27,9 @@ app.post('/startProcess', (req, res) => {
     const targetVideoFile = req.body.targetVideoFile;
     const outputFileName = uuidv4() + '.mp4';
 
-    const command = 'python run.py --source \'server_app/uploads/' + sourceImageFile
-        + '\' --target \'server_app/uploads/' + targetVideoFile
-        + '\' --output \'server_app/generated_videos/' + outputFileName + '\' --headless';
+    const command = 'python run.py --source \'node_server/uploads/' + sourceImageFile
+        + '\' --target \'node_server/uploads/' + targetVideoFile
+        + '\' --output \'node_server/generated_videos/' + outputFileName + '\' --headless';
     exec(command, (err, stdout, stderr) => {
             console.log(command);
             if (err) {
