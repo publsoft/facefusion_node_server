@@ -1,5 +1,8 @@
 const express = require('express');
 const multer = require('multer');
+const https = require('https');
+const fs = require('fs');
+const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 
 // Define storage for uploaded files
@@ -22,37 +25,83 @@ const { exec } = require('child_process');
 app.use(express.json());
 app.use(express.static(__dirname + '/static'));
 
-app.post('/startProcess', (req, res) => {
-    const sourceImageFile = req.body.sourceImageFile;
-    const targetVideoFile = req.body.targetVideoFile;
-    const outputFileName = uuidv4() + '.mp4';
+function downloadFile(fileName, fileUrl, callback) {
+    const file = fs.createWriteStream("node_server/uploads/" + fileName);
+    https.get(fileUrl, (response) => {
+        response.pipe(file);
+        file.on('finish', () => {
+            file.close(() => {
+                console.log('File downloaded successfully');
+                callback(true);
+            });
+        });
+    }).on('error', (err) => {
+        fs.unlink(destination, () => {
+            console.error('Error downloading file:', err);
+            callback(false);
+        });
+    });
+}
 
-    const command = 'python run.py --source \'node_server/uploads/' + sourceImageFile
-        + '\' --target \'node_server/uploads/' + targetVideoFile
-        + '\' --output \'node_server/generated_videos/' + outputFileName + '\' --headless';
-    exec(command, (err, stdout, stderr) => {
+function startProcess(req) {
+    const sourceFileUrl = req.body.sourceFileUrl;
+    const sourceFileName = req.body.sourceFileName;
+
+    const targetFileUrl = req.body.targetFileUrl;
+    const targetFileName = req.body.targetFileName;
+
+    const outputFileName = req.body.outputFileName;
+    const webhook = req.body.webhook;
+
+    function runCommand() {
+        const command = 'python run.py --source \'node_server/uploads/' + sourceFileName
+            + '\' --target \'node_server/uploads/' + targetFileName
+            + '\' --output \'node_server/generated_videos/' + outputFileName + '\' --headless';
+        exec(command, (err, stdout, stderr) => {
             console.log(command);
             if (err) {
-                res.status(400).json({
-                    error: err
-                })
+                console.log(err);
                 return;
             }
 
             console.log(`stdout: ${stdout}`);
             console.log(`stderr: ${stderr}`);
             if ((stdout + stderr).includes('Processing to video succeed')) {
-                res.status(200).json({
-                    outputFileName: outputFileName
-                });
+                console.log(outputFileName);
+
+                axios.post(webhook, {
+                    outputFileName
+                })
+                    .then((res) => {
+                        console.log(`Status: ${res.status}`);
+                        console.log('Body: ', res.data);
+                    }).catch((err) => {
+                        console.error(err);
+                    });
             }
         });
-});
+    }
 
-app.post('/upload', upload.single('file'), (req, res) => {
-    console.log(req.file, req.body.name)
+    downloadFile(sourceFileName, sourceFileUrl, (isSuccessForSource) => {
+        if (!isSuccessForSource) {
+            return;
+        }
+        downloadFile(targetFileName, targetFileUrl, (isSuccessForTarget) => {
+            if (!isSuccessForTarget) {
+                return;
+            }
+            runCommand();
+        });
+    });
+}
+
+app.post('/startProcess', (req, res, next) => {
+    res.on('finish', () => {
+        console.log('Response has been sent!')
+        startProcess(req);
+    })
     res.status(200).json({
-        fileName: req.file.filename
+        ok: true
     });
 });
 
