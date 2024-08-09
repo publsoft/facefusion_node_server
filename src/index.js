@@ -8,10 +8,10 @@ const { v4: uuidv4 } = require('uuid');
 // Define storage for uploaded files
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, './node_server/uploads/'); // Destination folder for uploaded files
+        cb(null, './node_server/files/'); // Destination folder for uploaded files
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname); // Rename the file to include the timestamp
+        cb(null, file.originalname); // Rename the file to include the timestamp
     },
 });
 
@@ -24,20 +24,21 @@ const { exec } = require('child_process');
 
 app.use(express.json());
 app.use(express.static(__dirname + '/static'));
+app.use('/files', express.static('./node_server/files/'));
 
 function downloadFile(fileName, fileUrl, callback) {
-    const file = fs.createWriteStream("node_server/uploads/" + fileName);
+    const file = fs.createWriteStream("node_server/files/" + fileName);
     https.get(fileUrl, (response) => {
         response.pipe(file);
         file.on('finish', () => {
             file.close(() => {
-                console.log('File downloaded successfully');
+                console.log('File downloaded successfully: ' + fileName);
                 callback(true);
             });
         });
     }).on('error', (err) => {
         fs.unlink(destination, () => {
-            console.error('Error downloading file:', err);
+            console.error('Error downloading file ' + fileName + ' : ', err);
             callback(false);
         });
     });
@@ -54,9 +55,9 @@ function startProcess(req) {
     const webhook = req.body.webhook;
 
     function runCommand() {
-        const command = 'python run.py --source \'node_server/uploads/' + sourceFileName
-            + '\' --target \'node_server/uploads/' + targetFileName
-            + '\' --output \'node_server/generated_videos/' + outputFileName + '\' --headless';
+        const command = 'python run.py --source \'node_server/files/' + sourceFileName
+            + '\' --target \'node_server/files/' + targetFileName
+            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32';
         exec(command, (err, stdout, stderr) => {
             console.log(command);
             if (err) {
@@ -64,21 +65,22 @@ function startProcess(req) {
                 return;
             }
 
-            console.log(`stdout: ${stdout}`);
-            console.log(`stderr: ${stderr}`);
-            if ((stdout + stderr).includes('Processing to video succeed')) {
-                console.log(outputFileName);
+            console.log('success process ouptputfile : ' + outputFileName);
+            console.log('success process logs : ' + stdout + stderr);
 
-                axios.post(webhook, {
-                    outputFileName
-                })
-                    .then((res) => {
-                        console.log(`Status: ${res.status}`);
-                        console.log('Body: ', res.data);
-                    }).catch((err) => {
-                        console.error(err);
-                    });
-            }
+            axios.post(webhook, {
+                isSuccess: (stdout + stderr).includes('Processing to video succeed'),
+                outputFileName,
+                stdout: stdout,
+                stderr: stderr
+            })
+                .then((res) => {
+                    console.log(`Status: ${res.status}`);
+                    console.log('Body: ', res.data);
+                }).catch((err) => {
+                    console.error(err);
+                });
+
         });
     }
 
