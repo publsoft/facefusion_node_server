@@ -58,8 +58,8 @@ function startProcess(req) {
         const command = 'python run.py --source \'node_server/files/' + sourceFileName
             + '\' --target \'node_server/files/' + targetFileName
             + '\' --output \'node_server/files/' + outputFileName + '\' --headless --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32';
+        console.log(command);
         exec(command, (err, stdout, stderr) => {
-            console.log(command);
             if (err) {
                 console.log(err);
                 return;
