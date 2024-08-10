@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
@@ -27,21 +28,34 @@ app.use(express.static(__dirname + '/static'));
 app.use('/files', express.static('./node_server/files/'));
 
 function downloadFile(fileName, fileUrl, callback) {
-    const file = fs.createWriteStream("node_server/files/" + fileName);
-    https.get(fileUrl, (response) => {
-        response.pipe(file);
-        file.on('finish', () => {
-            file.close(() => {
-                console.log('File downloaded successfully: ' + fileName);
-                callback(true);
+    if (fileUrl.startsWith('http') == false && fileUrl.startsWith('https') == false) {
+        callback(false);
+        return;
+    }
+
+    const proto = !fileUrl.charAt(4).localeCompare('s') ? https : http;
+
+    try {
+        const file = fs.createWriteStream("node_server/files/" + fileName);
+        proto.get(fileUrl, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(() => {
+                    console.log('File downloaded successfully: ' + fileName);
+                    callback(true);
+                });
+            });
+        }).on('error', (err) => {
+            fs.unlink(destination, () => {
+                console.error('Error downloading file ' + fileName + ' : ', err);
+                callback(false);
             });
         });
-    }).on('error', (err) => {
-        fs.unlink(destination, () => {
-            console.error('Error downloading file ' + fileName + ' : ', err);
-            callback(false);
-        });
-    });
+    }
+    catch (err) {
+        console.log("Download error: " + err);
+        callback(false);
+    }
 }
 
 function startProcess(req) {
@@ -62,17 +76,17 @@ function startProcess(req) {
         exec(command, (err, stdout, stderr) => {
             if (err) {
                 console.log(err);
-                return;
+            } else {
+                console.log('success process ouptputfile : ' + outputFileName);
             }
 
-            console.log('success process ouptputfile : ' + outputFileName);
-            console.log('success process logs : ' + stdout + stderr);
+            console.log('process logs : ' + stdout + stderr);
 
             axios.post(webhook, {
                 isSuccess: (stdout + stderr).includes('Processing to video succeed'),
                 outputFileName,
-                stdout: stdout,
-                stderr: stderr
+                stdout: stdout.slice(-5000),
+                stderr: stderrslice(-5000)
             })
                 .then((res) => {
                     console.log(`Status: ${res.status}`);
@@ -86,10 +100,32 @@ function startProcess(req) {
 
     downloadFile(sourceFileName, sourceFileUrl, (isSuccessForSource) => {
         if (!isSuccessForSource) {
+            console.log("sourceFile not downloaded!: URL: ", sourceFileUrl)
+            axios.post(webhook, {
+                isSuccess: false,
+                stderr: "sourceFile not downloaded"
+            })
+                .then((res) => {
+                    console.log(`Status: ${res.status}`);
+                    console.log('Body: ', res.data);
+                }).catch((err) => {
+                    console.error(err);
+                });
             return;
         }
         downloadFile(targetFileName, targetFileUrl, (isSuccessForTarget) => {
             if (!isSuccessForTarget) {
+                console.log("targetFile not downloaded!: URL: ", targetFileUrl)
+                axios.post(webhook, {
+                    isSuccess: false,
+                    stderr: "targetFile not downloaded"
+                })
+                    .then((res) => {
+                        console.log(`Status: ${res.status}`);
+                        console.log('Body: ', res.data);
+                    }).catch((err) => {
+                        console.error(err);
+                    });
                 return;
             }
             runCommand();

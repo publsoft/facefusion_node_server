@@ -1,6 +1,6 @@
 sudo apt-get install lsof
-sudo lsof -i :3000
-kill -9 <PID>
+sudo lsof -i :7860
+kill -9 551
 
 pip uninstall numpy
 pip install numpy==1.26.4
