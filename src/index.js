@@ -4,7 +4,9 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+const axiosRetry = require('axios-retry').default;
+
+axiosRetry(axios, { retries: 3 });
 
 // Define storage for uploaded files
 const storage = multer.diskStorage({
@@ -71,7 +73,7 @@ function startProcess(req) {
     function runCommand() {
         const command = 'python run.py --source \'node_server/files/' + sourceFileName
             + '\' --target \'node_server/files/' + targetFileName
-            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32';
+            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --frame-processors face_swapper face_enhancer --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32';
         console.log(command);
         exec(command, (err, stdout, stderr) => {
             if (err) {
@@ -86,7 +88,7 @@ function startProcess(req) {
                 isSuccess: (stdout + stderr).includes('Processing to video succeed'),
                 outputFileName,
                 stdout: stdout.slice(-5000),
-                stderr: stderrslice(-5000)
+                stderr: stderr.slice(-5000)
             })
                 .then((res) => {
                     console.log(`Status: ${res.status}`);
@@ -143,6 +145,11 @@ app.post('/startProcess', (req, res, next) => {
     });
 });
 
+// Add a health check route in express
+app.get('/health', (req, res) => {
+    res.status(200).send('ok')
+})
+
 app.listen(7860, () => console.log('Listening on port 7860'));
 
 const gracefulShutdown = () => {
@@ -151,3 +158,6 @@ const gracefulShutdown = () => {
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGUSR2', gracefulShutdown); // Sent by nodemon
+process.on('uncaughtException', function (err) {
+    console.log('Caught exception: ', err);
+});
