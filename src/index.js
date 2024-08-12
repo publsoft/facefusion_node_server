@@ -4,7 +4,10 @@ const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const axios = require('axios');
+const schedule = require('node-schedule');
 const axiosRetry = require('axios-retry').default;
+const { rimraf } = require('rimraf');
+const path = require('path');
 
 axiosRetry(axios, { retries: 3 });
 
@@ -150,9 +153,32 @@ app.get('/health', (req, res) => {
     res.status(200).send('ok')
 })
 
+const job = schedule.scheduleJob('*/10 * * * *', function () {
+    console.log("files removing...");
+    var uploadsDir = './node_server/files';
+    fs.readdir(uploadsDir, function (err, files) {
+        files.forEach(function (file, index) {
+            fs.stat(path.join(uploadsDir, file), function (err, stat) {
+                var endTime, now;
+                if (err) {
+                    return console.error(err);
+                }
+                now = new Date().getTime();
+                endTime = new Date(stat.ctime).getTime() + 300000;
+                if (now > endTime) {
+                    return rimraf(path.join(uploadsDir, file))
+                        .then(file => { })
+                        .catch(err => { });
+                }
+            });
+        });
+    });
+});
+
 app.listen(7860, () => console.log('Listening on port 7860'));
 
 const gracefulShutdown = () => {
+    schedule.gracefulShutdown();
 };
 
 process.on('SIGINT', gracefulShutdown);
