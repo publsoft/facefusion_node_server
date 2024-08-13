@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const https = require('https');
 const http = require('http');
+const request = require('request');
 const fs = require('fs');
 const axios = require('axios');
 const schedule = require('node-schedule');
@@ -72,6 +73,7 @@ function startProcess(req) {
 
     const outputFileName = req.body.outputFileName;
     const webhook = req.body.webhook;
+    const outputAWSFileUrl = req.body.outputAWSFileUrl;
 
     function runCommand() {
         const command = 'python run.py --source \'node_server/files/' + sourceFileName
@@ -87,19 +89,49 @@ function startProcess(req) {
 
             console.log('process logs : ' + stdout + stderr);
 
-            axios.post(webhook, {
-                isSuccess: (stdout + stderr).includes('Processing to video succeed'),
-                outputFileName,
-                stdout: stdout.slice(-5000),
-                stderr: stderr.slice(-5000)
-            })
-                .then((res) => {
-                    console.log(`Status: ${res.status}`);
-                    console.log('Body: ', res.data);
-                }).catch((err) => {
-                    console.error(err);
-                });
+            const isSuccess = (stdout + stderr).includes('Processing to video succeed') || (stdout + stderr).includes('Processing to image succeed')
 
+            function callWebHook(success) {
+                axios.post(webhook, {
+                    isSuccess: success,
+                    outputFileName,
+                    stdout: stdout.slice(-5000),
+                    stderr: stderr.slice(-5000),
+                    usedSignedURL: true
+                })
+                    .then((res) => {
+                        console.log(`Status: ${res.status}`);
+                        console.log('Body: ', res.data);
+                    }).catch((err) => {
+                        console.error(err);
+                    });
+            }
+
+            if (isSuccess == true) {
+
+                const outputFilePath = './node_server/files/' + outputFileName;
+                const options = {
+                    uri: outputAWSFileUrl,
+                    body: fs.createReadStream(outputFilePath),
+                    headers: {
+                        'content-length': fs.statSync(outputFilePath).size,
+                        'content-type': 'application/octet-stream',
+                    }
+                };
+
+                console.log("Uploading aws...");
+                request.put(options, (error, response, body) => {
+                    if (error) {
+                        callWebHook(false);
+                        console.log('Uploading aws failed: ', error);
+                        return;
+                    }
+                    console.log("ploading aws finished with status code: " + response.statusCode);
+                    callWebHook(response.statusCode == 200);
+                });
+            } else {
+                callWebHook(isSuccess);
+            }
         });
     }
 
