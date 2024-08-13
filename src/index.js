@@ -196,9 +196,35 @@ const job = schedule.scheduleJob('*/10 * * * *', function () {
                     return console.error(err);
                 }
                 now = new Date().getTime();
-                endTime = new Date(stat.ctime).getTime() + 300000;
+                endTime = new Date(stat.ctime).getTime() + 600000;
                 if (now > endTime) {
                     return rimraf(path.join(uploadsDir, file))
+                        .then(file => { })
+                        .catch(err => { });
+                }
+            });
+        });
+    });
+});
+
+const jobForTemp = schedule.scheduleJob('*/2 * * * *', function () {
+    console.log("temp files removing...");
+    var tempDir = '../../tmp';
+    fs.readdir(tempDir, function (err, files) {
+        if (err) {
+            console.log("temp files reading is failed: " + err);
+            return;
+        }
+        files.forEach(function (file, index) {
+            fs.stat(path.join(tempDir, file), function (err, stat) {
+                var endTime, now;
+                if (err) {
+                    return console.error("temp files removing is failed: " + err);
+                }
+                now = new Date().getTime();
+                endTime = new Date(stat.ctime).getTime() + 300000;
+                if (now > endTime) {
+                    return rimraf(path.join(tempDir, file))
                         .then(file => { })
                         .catch(err => { });
                 }
