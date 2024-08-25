@@ -78,7 +78,7 @@ function startProcess(req) {
     function runCommand() {
         const command = 'python run.py --source \'node_server/files/' + sourceFileName
             + '\' --target \'node_server/files/' + targetFileName
-            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --frame-processors face_swapper face_enhancer --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32';
+            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --frame-processors face_swapper face_enhancer --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32 --reference-face-distance 1';
         console.log(command);
         exec(command, (err, stdout, stderr) => {
             if (err) {
