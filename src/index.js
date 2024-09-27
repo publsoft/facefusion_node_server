@@ -10,7 +10,7 @@ const axiosRetry = require('axios-retry').default;
 const { rimraf } = require('rimraf');
 const path = require('path');
 
-axiosRetry(axios, { retries: 3 });
+axiosRetry(axios, { retries: 1 });
 
 // Define storage for uploaded files
 const storage = multer.diskStorage({
@@ -78,7 +78,7 @@ function startProcess(req) {
     function runCommand() {
         const command = 'python run.py --source \'node_server/files/' + sourceFileName
             + '\' --target \'node_server/files/' + targetFileName
-            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --frame-processors face_swapper face_enhancer --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32 --reference-face-distance 1';
+            + '\' --output \'node_server/files/' + outputFileName + '\' --headless --frame-processors face_swapper face_enhancer --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32 --reference-face-distance 1.2';
         console.log(command);
         exec(command, (err, stdout, stderr) => {
             if (err) {
@@ -208,6 +208,10 @@ const job = schedule.scheduleJob('*/10 * * * *', function () {
 });
 
 const jobForTemp = schedule.scheduleJob('*/2 * * * *', function () {
+    axios.get("https://6lo6ixlvskayq3ixakiffgzo3u0huvbk.lambda-url.us-east-1.on.aws/api/Feedback/Test")
+        .then(a => console.log("feedback test ok"))
+        .catch(e => console.log("feedback error:" + e));
+
     console.log("temp files removing...");
     var tempDir = '../../tmp';
     fs.readdir(tempDir, function (err, files) {
