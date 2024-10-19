@@ -4,3 +4,15 @@ kill -9 760
 
 pip uninstall numpy
 pip install numpy==1.26.4
+
+----------------------------------------
+
+mkdir -p facefusion && cd facefusion && apt-get update && apt-get install python3.10 -y && apt-get install python-is-python3 -y && apt-get install pip -y && apt-get install git -y && apt-get install curl -y && apt-get install ffmpeg -y && git clone https://github.com/facefusion/facefusion.git --branch 2.5.2 --single-branch . && python install.py --onnxruntime cuda-11.8 --skip-conda && mkdir -p node_server && cd node_server && git clone https://github.com/publsoft/facefusion_node_server.git --branch master --single-branch . && npm install --silent --progress=false && cd .. && node node_server/src/index
+
+{
+  "GRADIO_SERVER_NAME": "0.0.0.0",
+  "-p 7880:7860": "1",
+  "JUPYTER_TYPE": "lab"
+}
+
+node node_server/src/index.js
