@@ -8,7 +8,11 @@ const axios = require('axios');
 const schedule = require('node-schedule');
 const { rimraf } = require('rimraf');
 const path = require('path');
+var queue = require('queue');
 
+var q = queue({ results: [] });
+q.autostart = true;
+q.concurrency = 3;
 
 // Define storage for uploaded files
 const storage = multer.diskStorage({
@@ -73,12 +77,15 @@ function startProcess(req) {
     const webhook = req.body.webhook;
     const outputAWSFileUrl = req.body.outputAWSFileUrl;
 
-    function runCommand() {
+    function runCommand(qCallback) {
         const command = 'python run.py --source \'node_server/files/' + sourceFileName
             + '\' --target \'node_server/files/' + targetFileName
             + '\' --output \'node_server/files/' + outputFileName + '\' --headless --frame-processors face_swapper face_enhancer --execution-providers cuda --execution-thread-count 128 --execution-queue-count 32 --reference-face-distance 1.2';
         console.log(command);
+
         exec(command, (err, stdout, stderr) => {
+            qCallback(null, false);
+
             if (err) {
                 console.log(err);
             } else {
@@ -163,7 +170,10 @@ function startProcess(req) {
                     });
                 return;
             }
-            runCommand();
+            q.push(cb => {
+              runCommand(cb);
+            })
+
         });
     });
 }
