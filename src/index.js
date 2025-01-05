@@ -72,7 +72,7 @@ function startProcess(req) {
     const webhook = req.body.webhook;
     const outputAWSFileUrl = req.body.outputAWSFileUrl;
 
-    const command = req.command;
+    const command = req.body.command;
 
     function runCommand() {
         //const command = 'python run.py --source \'node_server/files/' + sourceFileName
