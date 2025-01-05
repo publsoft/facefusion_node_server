@@ -9,7 +9,6 @@ const schedule = require('node-schedule');
 const { rimraf } = require('rimraf');
 const path = require('path');
 
-
 // Define storage for uploaded files
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -211,7 +210,7 @@ const jobForTemp = schedule.scheduleJob('*/2 * * * *', function () {
         .catch(e => console.log("feedback error:" + e));
 
     console.log("temp files removing...");
-    var tempDir = '../../tmp';
+    var tempDir = '../tmp';
     fs.readdir(tempDir, function (err, files) {
         if (err) {
             console.log("temp files reading is failed: " + err);
